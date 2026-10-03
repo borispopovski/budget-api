@@ -2,9 +2,11 @@ package mk.mdt.budgetapi.repository;
 
 import mk.mdt.budgetapi.model.Contract;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
+@Repository
 public interface ContractRepository extends JpaRepository<Contract, Long> {
 
     default Contract create(Contract contract) {
