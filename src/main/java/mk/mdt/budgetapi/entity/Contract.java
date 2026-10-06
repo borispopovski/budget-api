@@ -1,4 +1,4 @@
-package mk.mdt.budgetapi.model;
+package mk.mdt.budgetapi.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;

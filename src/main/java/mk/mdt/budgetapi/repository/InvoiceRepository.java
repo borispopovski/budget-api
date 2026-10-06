@@ -1,6 +1,6 @@
 package mk.mdt.budgetapi.repository;
 
-import mk.mdt.budgetapi.model.Invoice;
+import mk.mdt.budgetapi.entity.Invoice;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
