@@ -1,4 +1,3 @@
-
 package mk.mdt.budgetapi.cfg;
 
 import java.util.List;
@@ -21,6 +20,7 @@ public class SecurityConfig {
 
         http
                 .cors(Customizer.withDefaults())
+                .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth ->
                         auth.anyRequest().authenticated()
                 )
@@ -35,7 +35,7 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
 
         config.setAllowedOrigins(
-                List.of("http://localhost:5173")
+                List.of("http://localhost:8443", "http://localhost:5173")
         );
 
         config.setAllowedMethods(
