@@ -1,4 +1,5 @@
-package mk.mdt.budgetapi.service.application;
+package mk.mdt.budgetapi.service;
+
 
 import mk.mdt.budgetapi.dto.InvoiceRequest;
 import mk.mdt.budgetapi.dto.InvoiceResponse;
@@ -6,7 +7,7 @@ import mk.mdt.budgetapi.dto.InvoiceResponse;
 import java.util.List;
 import java.util.Optional;
 
-public interface InvoiceApplicationService {
+public interface InvoiceService {
     Optional<InvoiceResponse> findById(Long id);
 
     List<InvoiceResponse> findAll();
@@ -16,4 +17,5 @@ public interface InvoiceApplicationService {
     Optional<InvoiceResponse> update(Long id, InvoiceRequest invoiceRequest);
 
     Optional<InvoiceResponse> deleteById(Long id);
+
 }

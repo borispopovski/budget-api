@@ -1,13 +1,17 @@
-package mk.mdt.budgetapi.service.domain.impl;
+package mk.mdt.budgetapi.service.impl;
 
 import jakarta.transaction.Transactional;
+import lombok.AllArgsConstructor;
+import mk.mdt.budgetapi.dto.InvoiceRequest;
+import mk.mdt.budgetapi.dto.InvoiceResponse;
 import mk.mdt.budgetapi.entity.Contract;
 import mk.mdt.budgetapi.entity.Invoice;
 import mk.mdt.budgetapi.exception.ContractNotFoundException;
 import mk.mdt.budgetapi.exception.InsufficientContractBalanceException;
+import mk.mdt.budgetapi.mapper.InvoiceMapper;
+import mk.mdt.budgetapi.repository.ContractRepository;
 import mk.mdt.budgetapi.repository.InvoiceRepository;
-import mk.mdt.budgetapi.service.domain.ContractService;
-import mk.mdt.budgetapi.service.domain.InvoiceService;
+import mk.mdt.budgetapi.service.InvoiceService;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -15,67 +19,68 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
+@AllArgsConstructor
 public class InvoiceServiceImpl implements InvoiceService {
     private final InvoiceRepository invoiceRepository;
-    private final ContractService contractService;
+    private final InvoiceMapper invoiceMapper;
+    private final ContractRepository contractRepository;
 
-    public InvoiceServiceImpl(InvoiceRepository invoiceRepository, ContractService contractService) {
-        this.invoiceRepository = invoiceRepository;
-        this.contractService = contractService;
+    @Override
+    public Optional<InvoiceResponse> findById(Long id) {
+        return invoiceRepository.findById(id)
+                .map(invoiceMapper::toInvoiceResponse);
     }
 
     @Override
-    public Optional<Invoice> findById(Long id) {
-        return this.invoiceRepository.findById(id);
-    }
-
-    @Override
-    public List<Invoice> findAll() {
-        return this.invoiceRepository.findAll();
+    public List<InvoiceResponse> findAll() {
+        return invoiceRepository.findAll().stream()
+                .map(invoiceMapper::toInvoiceResponse)
+                .toList();
     }
 
     @Override
     @Transactional
-    public Invoice create(Invoice invoice) {
-        Contract contract = getContractWithLock( invoice.getContract().getId());
+    public InvoiceResponse create(InvoiceRequest invoiceRequest) {
+        Contract contract = getContractWithLock(invoiceRequest.contractId());
 
-        invoice.setContract(contract);
+        validateContractBalance(contract, invoiceRequest.amount());
 
-        validateContractBalance(contract, invoice.getAmount());
+        Invoice invoice = invoiceMapper.toInvoice(invoiceRequest, contract);
 
-        Invoice savedInvoice = invoiceRepository.save(invoice);
+        Invoice saved = invoiceRepository.save(invoice);
 
         updateRemainingAmount(contract);
 
-        return savedInvoice;
+        return invoiceMapper.toInvoiceResponse(saved);
     }
 
     @Override
     @Transactional
-    public Optional<Invoice> update(Long id, Invoice invoice) {
+    public Optional<InvoiceResponse> update(Long id, InvoiceRequest invoiceRequest) {
         return invoiceRepository.findById(id)
                 .map(existingInvoice -> {
 
                     Contract contract = getContractWithLock(existingInvoice.getContract().getId());
 
-                    BigDecimal difference =
-                            invoice.getAmount().subtract(existingInvoice.getAmount());
+                    BigDecimal difference = invoiceRequest.amount()
+                            .subtract(existingInvoice.getAmount());
 
                     validateContractBalance(contract, difference);
 
-                    existingInvoice.setAmount(invoice.getAmount());
-                    existingInvoice.setDate(invoice.getDate());
+                    existingInvoice.setAmount(invoiceRequest.amount());
+                    existingInvoice.setDate(invoiceRequest.date());
 
                     Invoice updated = invoiceRepository.save(existingInvoice);
+
                     updateRemainingAmount(contract);
 
-                    return updated;
+                    return invoiceMapper.toInvoiceResponse(updated);
                 });
     }
 
     @Override
     @Transactional
-    public Optional<Invoice> deleteById(Long id) {
+    public Optional<InvoiceResponse> deleteById(Long id) {
         return invoiceRepository.findById(id)
                 .map(invoice -> {
                     Contract contract = getContractWithLock(invoice.getContract().getId());
@@ -84,7 +89,7 @@ public class InvoiceServiceImpl implements InvoiceService {
 
                     updateRemainingAmount(contract);
 
-                    return invoice;
+                    return invoiceMapper.toInvoiceResponse(invoice);
                 });
     }
 
@@ -110,7 +115,7 @@ public class InvoiceServiceImpl implements InvoiceService {
     }
 
     private Contract getContractWithLock(Long contractId) {
-        return contractService.findWithLockById(contractId)
+        return contractRepository.findWithLockById(contractId)
                 .orElseThrow(() -> new ContractNotFoundException(contractId));
     }
 }

@@ -1,4 +1,5 @@
-package mk.mdt.budgetapi.service.application;
+package mk.mdt.budgetapi.service;
+
 
 import mk.mdt.budgetapi.dto.ContractRequest;
 import mk.mdt.budgetapi.dto.ContractResponse;
@@ -6,7 +7,7 @@ import mk.mdt.budgetapi.dto.ContractResponse;
 import java.util.List;
 import java.util.Optional;
 
-public interface ContractApplicationService {
+public interface ContractService {
     Optional<ContractResponse> findById(Long id);
 
     List<ContractResponse> findAll();
