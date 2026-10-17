@@ -12,25 +12,6 @@ import java.util.List;
 @Repository
 public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 
-    default Invoice create(Invoice invoice) {
-        return save(invoice);
-    }
-
-    default Invoice getById(Long id) {
-        return findById(id).orElseThrow(() -> new RuntimeException("Invoice not found"));
-    }
-
-    default List<Invoice> getAll() {
-        return findAll();
-    }
-
-    default Invoice update(Invoice invoice) {
-        return save(invoice);
-    }
-
-    default void delete(Long id) {
-        deleteById(id);
-    }
 
     @Query("""
     SELECT COALESCE(SUM(i.amount), 0)

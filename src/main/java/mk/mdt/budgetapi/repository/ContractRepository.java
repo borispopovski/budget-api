@@ -12,26 +12,6 @@ import java.util.Optional;
 @Repository
 public interface ContractRepository extends JpaRepository<Contract, Long> {
 
-    default Contract create(Contract contract) {
-        return save(contract);
-    }
-
-    default Contract getById(Long id) {
-        return findById(id).orElseThrow(() -> new RuntimeException("Contract not found"));
-    }
-
-    default List<Contract> getAll() {
-        return findAll();
-    }
-
-    default Contract update(Contract contract) {
-        return save(contract);
-    }
-
-    default void delete(Long id) {
-        deleteById(id);
-    }
-
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Contract> findWithLockById(Long id);
 }
