@@ -3,6 +3,8 @@ package mk.mdt.budgetapi.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import mk.mdt.budgetapi.dto.LoginRequest;
+import mk.mdt.budgetapi.dto.RegisterUserRequest;
+import mk.mdt.budgetapi.dto.RegisterUserResponse;
 import mk.mdt.budgetapi.dto.UserResponse;
 import mk.mdt.budgetapi.service.AuthService;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +19,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+
+    @PostMapping("/register")
+    public ResponseEntity<RegisterUserResponse> register(@RequestBody RegisterUserRequest registerUserRequest) {
+        return ResponseEntity.ok(authService.register(registerUserRequest));
+    }
+
 
     @PostMapping("/login")
     public ResponseEntity<UserResponse> login(@Valid @RequestBody LoginRequest request) {

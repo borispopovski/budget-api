@@ -3,8 +3,12 @@ package mk.mdt.budgetapi.service.impl;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import mk.mdt.budgetapi.dto.LoginRequest;
+import mk.mdt.budgetapi.dto.RegisterUserRequest;
+import mk.mdt.budgetapi.dto.RegisterUserResponse;
 import mk.mdt.budgetapi.dto.UserResponse;
+import mk.mdt.budgetapi.entity.Role;
 import mk.mdt.budgetapi.entity.User;
+import mk.mdt.budgetapi.exception.EmailAlreadyExistsException;
 import mk.mdt.budgetapi.mapper.UserMapper;
 import mk.mdt.budgetapi.repository.UserRepository;
 import mk.mdt.budgetapi.service.AuthService;
@@ -22,6 +26,21 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
+
+    @Override
+    public RegisterUserResponse register(RegisterUserRequest registerUserRequest) {
+        if (userRepository.existsByEmail(registerUserRequest.email())) {
+            throw new EmailAlreadyExistsException(registerUserRequest.email());
+        }
+
+        User user = userMapper.toUser(registerUserRequest);
+
+        user.setPassword(passwordEncoder.encode(registerUserRequest.password()));
+        user.setRole(Role.user);
+        user.setEnabled(true);
+
+        return userMapper.toRegisterUserResponse(userRepository.save(user));
+    }
 
     @Override
     @Transactional
