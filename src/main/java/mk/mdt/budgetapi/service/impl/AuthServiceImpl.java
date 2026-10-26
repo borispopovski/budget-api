@@ -19,6 +19,16 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 
+import mk.mdt.budgetapi.dto.ForgotPasswordRequest;
+import mk.mdt.budgetapi.dto.ResetPasswordRequest;
+import mk.mdt.budgetapi.entity.PasswordResetToken;
+import mk.mdt.budgetapi.exception.InvalidResetTokenException;
+import mk.mdt.budgetapi.exception.UserNotFoundException;
+import mk.mdt.budgetapi.repository.PasswordResetTokenRepository;
+import mk.mdt.budgetapi.service.EmailService;
+
+import java.util.UUID;
+
 @Service
 @AllArgsConstructor
 public class AuthServiceImpl implements AuthService {
@@ -26,6 +36,11 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
+
+    private static final long RESET_TOKEN_EXPIRATION_MINUTES = 30;
+
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final EmailService emailService;
 
     @Override
     public RegisterUserResponse register(RegisterUserRequest registerUserRequest) {
@@ -53,5 +68,50 @@ public class AuthServiceImpl implements AuthService {
 
         user.setLastLogin(LocalDateTime.now());
         return userMapper.toUserResponse(userRepository.save(user));
+    }
+
+    @Override
+    @Transactional
+    public void forgotPassword(ForgotPasswordRequest request) {
+        String email = request.email().trim().toLowerCase();
+
+        User user = userRepository.findByEmail(email)
+                .filter(User::isEnabled)
+                .orElseThrow(() -> new UserNotFoundException(email));
+
+        passwordResetTokenRepository.deleteByUser(user);
+        passwordResetTokenRepository.flush();
+
+        String token = UUID.randomUUID().toString();
+        PasswordResetToken resetToken = new PasswordResetToken(
+                token, user, LocalDateTime.now().plusMinutes(RESET_TOKEN_EXPIRATION_MINUTES));
+        passwordResetTokenRepository.save(resetToken);
+
+        emailService.sendPasswordResetEmail(user.getEmail(), token);
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        if (!request.password().equals(request.confirmPassword())) {
+            throw new InvalidResetTokenException("Passwords do not match.");
+        }
+
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(request.token())
+                .orElseThrow(() -> new InvalidResetTokenException("Invalid reset token."));
+
+        if (resetToken.isUsed()) {
+            throw new InvalidResetTokenException("Reset token has already been used.");
+        }
+        if (resetToken.getExpiryDate().isBefore(LocalDateTime.now())) {
+            throw new InvalidResetTokenException("Reset token has expired.");
+        }
+
+        User user = resetToken.getUser();
+        user.setPassword(passwordEncoder.encode(request.password()));
+        userRepository.save(user);
+
+        resetToken.setUsed(true);
+        passwordResetTokenRepository.save(resetToken);
     }
 }
