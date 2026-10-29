@@ -9,6 +9,6 @@ public record UserRequest(
         @NotBlank String firstName,
         @NotBlank String lastName,
         @NotBlank @Email String email,
-        @NotBlank @Size(min = 8) String password,
+        @NotBlank @Size(min = 12) String password,
         Role role
 ) {}
