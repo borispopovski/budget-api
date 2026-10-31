@@ -2,31 +2,30 @@ package mk.mdt.budgetapi.service.impl;
 
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
-import mk.mdt.budgetapi.dto.LoginRequest;
-import mk.mdt.budgetapi.dto.RegisterUserRequest;
-import mk.mdt.budgetapi.dto.RegisterUserResponse;
-import mk.mdt.budgetapi.dto.UserResponse;
+import mk.mdt.budgetapi.dto.*;
 import mk.mdt.budgetapi.entity.Role;
 import mk.mdt.budgetapi.entity.User;
 import mk.mdt.budgetapi.exception.EmailAlreadyExistsException;
+import mk.mdt.budgetapi.helpers.JwtHelper;
 import mk.mdt.budgetapi.mapper.UserMapper;
 import mk.mdt.budgetapi.repository.UserRepository;
 import mk.mdt.budgetapi.service.AuthService;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 
-import mk.mdt.budgetapi.dto.ForgotPasswordRequest;
-import mk.mdt.budgetapi.dto.ResetPasswordRequest;
 import mk.mdt.budgetapi.entity.PasswordResetToken;
 import mk.mdt.budgetapi.exception.InvalidResetTokenException;
 import mk.mdt.budgetapi.exception.UserNotFoundException;
 import mk.mdt.budgetapi.repository.PasswordResetTokenRepository;
 import mk.mdt.budgetapi.service.EmailService;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -36,11 +35,19 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
+    private final JwtHelper jwtHelper;
 
     private static final long RESET_TOKEN_EXPIRATION_MINUTES = 30;
 
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final EmailService emailService;
+
+
+    @Override
+    public Optional<RegisterUserResponse> findByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .map(userMapper::toRegisterUserResponse);
+    }
 
     @Override
     public RegisterUserResponse register(RegisterUserRequest registerUserRequest) {
@@ -51,7 +58,7 @@ public class AuthServiceImpl implements AuthService {
         User user = userMapper.toUser(registerUserRequest);
 
         user.setPassword(passwordEncoder.encode(registerUserRequest.password()));
-        user.setRole(Role.user);
+        user.setRole(Role.ROLE_USER);
         user.setEnabled(true);
 
         return userMapper.toRegisterUserResponse(userRepository.save(user));
@@ -59,7 +66,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public UserResponse login(LoginRequest request) {
+    public LoginUserResponse login(LoginUserRequest request) {
         User user = userRepository.findByEmail(request.email().trim().toLowerCase())
                 .filter(User::isEnabled)
                 .filter(u -> passwordEncoder.matches(request.password(), u.getPassword()))
@@ -67,7 +74,12 @@ public class AuthServiceImpl implements AuthService {
                         HttpStatus.UNAUTHORIZED, "Invalid email or password."));
 
         user.setLastLogin(LocalDateTime.now());
-        return userMapper.toUserResponse(userRepository.save(user));
+
+        String token = jwtHelper.generateToken(user);
+
+        userRepository.save(user);
+
+        return new LoginUserResponse(token);
     }
 
     @Override
@@ -113,5 +125,11 @@ public class AuthServiceImpl implements AuthService {
 
         resetToken.setUsed(true);
         passwordResetTokenRepository.save(resetToken);
+    }
+
+    @Override
+    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException(email));
     }
 }

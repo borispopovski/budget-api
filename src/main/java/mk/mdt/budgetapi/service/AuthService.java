@@ -1,16 +1,16 @@
 package mk.mdt.budgetapi.service;
 
-import mk.mdt.budgetapi.dto.ForgotPasswordRequest;
-import mk.mdt.budgetapi.dto.LoginRequest;
-import mk.mdt.budgetapi.dto.RegisterUserRequest;
-import mk.mdt.budgetapi.dto.RegisterUserResponse;
-import mk.mdt.budgetapi.dto.ResetPasswordRequest;
-import mk.mdt.budgetapi.dto.UserResponse;
+import mk.mdt.budgetapi.dto.*;
+import org.springframework.security.core.userdetails.UserDetailsService;
 
-public interface AuthService {
+import java.util.Optional;
+
+public interface AuthService extends UserDetailsService {
+    Optional<RegisterUserResponse> findByEmail(String email);
+
     RegisterUserResponse register(RegisterUserRequest registerUserRequest);
 
-    UserResponse login(LoginRequest request);
+    LoginUserResponse login(LoginUserRequest request);
 
     void forgotPassword(ForgotPasswordRequest request);
 
