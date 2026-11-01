@@ -1,5 +1,6 @@
 package mk.mdt.budgetapi.exception;
 
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import mk.mdt.budgetapi.dto.ErrorResponse;
@@ -41,6 +42,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InvalidCredentialsException.class)
     public ResponseEntity<ErrorResponse> handleInvalidCredentials(InvalidCredentialsException ex, HttpServletRequest req) {
         return build(HttpStatus.UNAUTHORIZED, ex.getMessage(), req, null);
+    }
+
+    // 401
+    @ExceptionHandler(JwtException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidJwt(JwtException ex, HttpServletRequest req) {
+        return build(HttpStatus.UNAUTHORIZED, "Invalid or expired token.", req, null);
     }
 
     // 400
