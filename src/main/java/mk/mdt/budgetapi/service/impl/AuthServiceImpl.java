@@ -6,6 +6,7 @@ import mk.mdt.budgetapi.dto.*;
 import mk.mdt.budgetapi.entity.Role;
 import mk.mdt.budgetapi.entity.User;
 import mk.mdt.budgetapi.exception.EmailAlreadyExistsException;
+import mk.mdt.budgetapi.exception.InvalidCredentialsException;
 import mk.mdt.budgetapi.helpers.JwtHelper;
 import mk.mdt.budgetapi.mapper.UserMapper;
 import mk.mdt.budgetapi.repository.UserRepository;
@@ -70,8 +71,7 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByEmail(request.email().trim().toLowerCase())
                 .filter(User::isEnabled)
                 .filter(u -> passwordEncoder.matches(request.password(), u.getPassword()))
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.UNAUTHORIZED, "Invalid email or password."));
+                .orElseThrow(InvalidCredentialsException::new);
 
         user.setLastLogin(LocalDateTime.now());
 
