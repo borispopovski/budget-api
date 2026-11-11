@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.util.Optional;
 
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import mk.mdt.budgetapi.constants.JwtConstants;
 import mk.mdt.budgetapi.entity.User;
 import mk.mdt.budgetapi.helpers.JwtHelper;
@@ -23,6 +24,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
+@Slf4j
 @Component
 @AllArgsConstructor
 public class JwtFilter extends OncePerRequestFilter {
@@ -69,6 +71,7 @@ public class JwtFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
         } catch (JwtException jwtException) {
+            log.warn("Invalid JWT on {} {}: {}", request.getMethod(), request.getRequestURI(), jwtException.getMessage());
             handlerExceptionResolver.resolveException(
                     request,
                     response,

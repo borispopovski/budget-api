@@ -2,6 +2,7 @@ package mk.mdt.budgetapi.service.impl;
 
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import mk.mdt.budgetapi.dto.InvoiceRequest;
 import mk.mdt.budgetapi.dto.InvoiceResponse;
 import mk.mdt.budgetapi.entity.Contract;
@@ -18,6 +19,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @Service
 @AllArgsConstructor
 public class InvoiceServiceImpl implements InvoiceService {
@@ -41,6 +43,7 @@ public class InvoiceServiceImpl implements InvoiceService {
     @Override
     @Transactional
     public InvoiceResponse create(InvoiceRequest invoiceRequest) {
+        log.debug("Creating invoice for contract {}, amount={}", invoiceRequest.contractId(), invoiceRequest.amount());
         Contract contract = getContractWithLock(invoiceRequest.contractId());
 
         validateContractBalance(contract, invoiceRequest.amount());
@@ -51,6 +54,7 @@ public class InvoiceServiceImpl implements InvoiceService {
 
         updateRemainingAmount(contract);
 
+        log.info("Invoice created: id={}, contractId={}, amount={}", saved.getId(), contract.getId(), saved.getAmount());
         return invoiceMapper.toInvoiceResponse(saved);
     }
 
@@ -74,6 +78,7 @@ public class InvoiceServiceImpl implements InvoiceService {
 
                     updateRemainingAmount(contract);
 
+                    log.info("Invoice updated: id={}, contractId={}", id, contract.getId());
                     return invoiceMapper.toInvoiceResponse(updated);
                 });
     }
@@ -89,6 +94,7 @@ public class InvoiceServiceImpl implements InvoiceService {
 
                     updateRemainingAmount(contract);
 
+                    log.info("Invoice deleted: id={}, contractId={}", id, contract.getId());
                     return invoiceMapper.toInvoiceResponse(invoice);
                 });
     }
@@ -110,12 +116,16 @@ public class InvoiceServiceImpl implements InvoiceService {
 
         if (invoicedAmount.add(amountDifference)
                 .compareTo(contract.getTotalAmount()) > 0) {
+            log.warn("Insufficient balance on contract {}: invoiced={}, requested change={}, total={}", contract.getId(), invoicedAmount, amountDifference, contract.getTotalAmount());
             throw new InsufficientContractBalanceException(contract.getId());
         }
     }
 
     private Contract getContractWithLock(Long contractId) {
         return contractRepository.findWithLockById(contractId)
-                .orElseThrow(() -> new ContractNotFoundException(contractId));
+                .orElseThrow(() -> {
+                    log.warn("Contract not found: id={}", contractId);
+                    return new ContractNotFoundException(contractId);
+                });
     }
 }

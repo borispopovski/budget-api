@@ -2,6 +2,7 @@ package mk.mdt.budgetapi.service.impl;
 
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import mk.mdt.budgetapi.dto.ContractRequest;
 import mk.mdt.budgetapi.dto.ContractResponse;
 import mk.mdt.budgetapi.entity.Contract;
@@ -16,7 +17,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
-
+@Slf4j
 @Service
 @AllArgsConstructor
 public class ContractServiceImpl implements ContractService {
@@ -44,12 +45,14 @@ public class ContractServiceImpl implements ContractService {
 
         contract.setRemainingAmount(contract.getTotalAmount());
 
-        return contractMapper.toContractResponse(contractRepository.save(contract));
-    }
+        Contract saved = contractRepository.save(contract);
+        log.info("Contract created: id={}, name={}, totalAmount={}", saved.getId(), saved.getContractName(), saved.getTotalAmount());
+        return contractMapper.toContractResponse(saved);    }
 
     @Override
     @Transactional
     public Optional<ContractResponse> update(Long id, ContractRequest contractRequest) {
+        log.debug("Updating contract id={}", id);
         return contractRepository
                 .findWithLockById(id)
                 .map(existingContract -> {
@@ -57,6 +60,7 @@ public class ContractServiceImpl implements ContractService {
                             invoiceRepository.sumAmountByContractId(id);
 
                     if (contractRequest.totalAmount().compareTo(invoicedAmount) < 0) {
+                        log.warn("Contract {} update rejected: new total {} is below invoiced amount {}", id, contractRequest.totalAmount(), invoicedAmount);
                         throw new InsufficientContractBalanceException(id);
                     }
 
@@ -71,8 +75,9 @@ public class ContractServiceImpl implements ContractService {
                             contractRequest.totalAmount().subtract(invoicedAmount)
                     );
 
-                    return contractMapper.toContractResponse(contractRepository.save(existingContract));
-                });
+                    Contract updated = contractRepository.save(existingContract);
+                    log.info("Contract updated: id={}", id);
+                    return contractMapper.toContractResponse(updated);                });
     }
 
     @Override
@@ -83,10 +88,12 @@ public class ContractServiceImpl implements ContractService {
                 .map(contract -> {
 
                     if (invoiceRepository.existsByContractId(id)) {
+                        log.warn("Contract {} cannot be deleted: it has invoices", id);
                         throw new ContractHasInvoicesException(id);
                     }
 
                     contractRepository.delete(contract);
+                    log.info("Contract deleted: id={}", id);
 
                     return contractMapper.toContractResponse(contract);
                 });

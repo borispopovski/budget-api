@@ -2,6 +2,7 @@ package mk.mdt.budgetapi.service.impl;
 
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import mk.mdt.budgetapi.dto.*;
 import mk.mdt.budgetapi.entity.Role;
 import mk.mdt.budgetapi.entity.User;
@@ -11,12 +12,10 @@ import mk.mdt.budgetapi.helpers.JwtHelper;
 import mk.mdt.budgetapi.mapper.UserMapper;
 import mk.mdt.budgetapi.repository.UserRepository;
 import mk.mdt.budgetapi.service.AuthService;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 
@@ -24,11 +23,11 @@ import mk.mdt.budgetapi.entity.PasswordResetToken;
 import mk.mdt.budgetapi.exception.InvalidResetTokenException;
 import mk.mdt.budgetapi.exception.UserNotFoundException;
 import mk.mdt.budgetapi.repository.PasswordResetTokenRepository;
-import mk.mdt.budgetapi.service.EmailService;
+import mk.mdt.budgetapi.email.EmailService;
 
 import java.util.Optional;
 import java.util.UUID;
-
+@Slf4j
 @Service
 @AllArgsConstructor
 public class AuthServiceImpl implements AuthService {
@@ -52,7 +51,9 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public RegisterUserResponse register(RegisterUserRequest registerUserRequest) {
+        log.info("Register attempt for email {}", registerUserRequest.email());
         if (userRepository.existsByEmail(registerUserRequest.email())) {
+            log.warn("Registration failed, email already exists: {}", registerUserRequest.email());
             throw new EmailAlreadyExistsException(registerUserRequest.email());
         }
 
@@ -62,16 +63,22 @@ public class AuthServiceImpl implements AuthService {
         user.setRole(Role.ROLE_USER);
         user.setEnabled(true);
 
-        return userMapper.toRegisterUserResponse(userRepository.save(user));
+        RegisterUserResponse response = userMapper.toRegisterUserResponse(userRepository.save(user));
+        log.info("User registered: {}", registerUserRequest.email());
+        return response;
     }
 
     @Override
     @Transactional
     public LoginUserResponse login(LoginUserRequest request) {
+        log.debug("Login attempt for {}", request.email());
         User user = userRepository.findByEmail(request.email().trim().toLowerCase())
                 .filter(User::isEnabled)
                 .filter(u -> passwordEncoder.matches(request.password(), u.getPassword()))
-                .orElseThrow(InvalidCredentialsException::new);
+                .orElseThrow(() -> {
+                    log.warn("Failed login attempt for {}", request.email());
+                    return new InvalidCredentialsException();
+                });
 
         user.setLastLogin(LocalDateTime.now());
 
@@ -79,6 +86,7 @@ public class AuthServiceImpl implements AuthService {
 
         userRepository.save(user);
 
+        log.info("User logged in: {}", user.getEmail());
         return new LoginUserResponse(token);
     }
 
@@ -86,10 +94,14 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public void forgotPassword(ForgotPasswordRequest request) {
         String email = request.email().trim().toLowerCase();
+        log.info("Forgot password requested for {}", email);
 
         User user = userRepository.findByEmail(email)
                 .filter(User::isEnabled)
-                .orElseThrow(() -> new UserNotFoundException(email));
+                .orElseThrow(() -> {
+                    log.warn("Forgot password: no enabled user with email {}", email);
+                    return new UserNotFoundException(email);
+                });
 
         passwordResetTokenRepository.deleteByUser(user);
         passwordResetTokenRepository.flush();
@@ -100,6 +112,7 @@ public class AuthServiceImpl implements AuthService {
         passwordResetTokenRepository.save(resetToken);
 
         emailService.sendPasswordResetEmail(user.getEmail(), token);
+        log.info("Password reset email dispatched to {}", user.getEmail());
     }
 
     @Override
@@ -132,4 +145,6 @@ public class AuthServiceImpl implements AuthService {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException(email));
     }
+
+
 }

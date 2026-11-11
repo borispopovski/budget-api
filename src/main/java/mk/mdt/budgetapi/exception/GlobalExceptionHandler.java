@@ -64,6 +64,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleMalformed(Exception ex, HttpServletRequest req) {
         return build(HttpStatus.BAD_REQUEST, "Malformed request.", req, null);
     }
+    // 503
+    @ExceptionHandler(EmailSendException.class)
+    public ResponseEntity<ErrorResponse> handleEmailFailure(EmailSendException ex, HttpServletRequest req) {
+        log.error("Email sending failed on {}", req.getRequestURI(), ex);
+        return build(HttpStatus.SERVICE_UNAVAILABLE, "Unable to send email. Please try again later.", req, null);
+    }
 
     // 500
     @ExceptionHandler(Exception.class)
@@ -75,6 +81,9 @@ public class GlobalExceptionHandler {
     private ResponseEntity<ErrorResponse> build(HttpStatus status, String message,
                                                 HttpServletRequest req,
                                                 List<FieldValidationError> fieldErrors) {
+        if (status.is4xxClientError()) {
+            log.warn("{} on {}: {}", status.value(), req.getRequestURI(), message);
+        }
         ErrorResponse body = new ErrorResponse(
                 LocalDateTime.now(), status.value(), status.getReasonPhrase(),
                 message, req.getRequestURI(), fieldErrors);
