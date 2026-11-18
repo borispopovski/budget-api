@@ -21,7 +21,7 @@ import java.util.List;
 public class GlobalExceptionHandler {
 
     // 404
-    @ExceptionHandler({ContractNotFoundException.class, UserNotFoundException.class})
+    @ExceptionHandler({ContractNotFoundException.class, InvoiceNotFoundException.class, UserNotFoundException.class})
     public ResponseEntity<ErrorResponse> handleNotFound(RuntimeException ex, HttpServletRequest req) {
         return build(HttpStatus.NOT_FOUND, ex.getMessage(), req, null);
     }
